@@ -1,13 +1,31 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, usersTable, eventsTable } from "@workspace/db";
-import { eq, and, gt, isNotNull } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { google } from "googleapis";
 import { createOAuth2Client } from "../lib/google";
-import { extractEventFromText } from "../lib/groq";
+import { extractEventsFromText } from "../lib/groq";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
+
+const EVENT_EMOJI: Record<string, string> = {
+  quiz: "📝",
+  exam: "📚",
+  viva: "🎤",
+  assignment: "📋",
+  presentation: "🖥️",
+  other: "📌",
+};
+
+const EVENT_COLOR_ID: Record<string, string> = {
+  quiz: "5",
+  exam: "11",
+  viva: "3",
+  assignment: "2",
+  presentation: "6",
+  other: "7",
+};
 
 function getAuthClientForUser(user: typeof usersTable.$inferSelect) {
   const oauth2Client = createOAuth2Client();
@@ -58,7 +76,7 @@ router.post("/courses/sync", requireAuth, async (req: AuthenticatedRequest, res:
       try {
         const { data: announcementsData } = await classroom.courses.announcements.list({
           courseId: course.id,
-          pageSize: 20,
+          pageSize: 30,
           orderBy: "updateTime desc",
         });
         const announcements = announcementsData.announcements ?? [];
@@ -67,59 +85,77 @@ router.post("/courses/sync", requireAuth, async (req: AuthenticatedRequest, res:
         for (const ann of announcements) {
           if (!ann.text || !ann.id) continue;
 
-          // Check if already processed
-          const existing = await db
-            .select()
-            .from(eventsTable)
-            .where(
-              and(
-                eq(eventsTable.userId, user.id),
-                eq(eventsTable.announcementId, ann.id)
-              )
-            );
+          const announcementDate = ann.creationTime
+            ? new Date(ann.creationTime).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10);
 
-          if (existing.length > 0) continue;
+          const extractedEvents = await extractEventsFromText(ann.text, announcementDate);
 
-          const extracted = await extractEventFromText(ann.text);
-          if (!extracted || extracted.confidence < 0.4) continue;
+          for (const extracted of extractedEvents) {
+            const existing = await db
+              .select()
+              .from(eventsTable)
+              .where(
+                and(
+                  eq(eventsTable.userId, user.id),
+                  eq(eventsTable.announcementId, ann.id),
+                  eq(eventsTable.eventType, extracted.event_type)
+                )
+              );
 
-          const [newEvent] = await db
-            .insert(eventsTable)
-            .values({
-              userId: user.id,
-              courseId: course.id,
-              courseName: course.name ?? "Unknown Course",
-              eventType: extracted.event_type,
-              eventDate: extracted.date,
-              rawText: ann.text.slice(0, 1000),
-              confidence: extracted.confidence,
-              announcementId: ann.id,
-            })
-            .returning();
+            if (existing.length > 0) continue;
 
-          eventsExtracted++;
+            const [newEvent] = await db
+              .insert(eventsTable)
+              .values({
+                userId: user.id,
+                courseId: course.id,
+                courseName: course.name ?? "Unknown Course",
+                eventType: extracted.event_type,
+                eventDate: extracted.date,
+                rawText: extracted.title
+                  ? `${extracted.title}\n\n${ann.text.slice(0, 900)}`
+                  : ann.text.slice(0, 1000),
+                confidence: extracted.confidence,
+                announcementId: ann.id,
+              })
+              .returning();
 
-          // Auto-sync to calendar if date is available
-          if (extracted.date && newEvent) {
-            try {
-              const calEvent = await calendar.events.insert({
-                calendarId: "primary",
-                requestBody: {
-                  summary: `${extracted.event_type.charAt(0).toUpperCase() + extracted.event_type.slice(1)} — ${course.name}`,
-                  description: ann.text.slice(0, 500),
-                  start: { date: extracted.date },
-                  end: { date: extracted.date },
-                },
-              });
+            eventsExtracted++;
 
-              await db
-                .update(eventsTable)
-                .set({ calendarEventId: calEvent.data.id ?? null })
-                .where(eq(eventsTable.id, newEvent.id));
+            if (extracted.date && newEvent) {
+              try {
+                const emoji = EVENT_EMOJI[extracted.event_type] ?? "📌";
+                const colorId = EVENT_COLOR_ID[extracted.event_type] ?? "7";
+                const title = extracted.title || (course.name ?? "Unknown Course");
 
-              calendarSynced++;
-            } catch (calErr) {
-              logger.warn({ calErr }, "Failed to sync event to calendar");
+                const calEvent = await calendar.events.insert({
+                  calendarId: "primary",
+                  requestBody: {
+                    summary: `${emoji} ${title} — ${course.name}`,
+                    description: ann.text.slice(0, 500),
+                    colorId,
+                    start: { date: extracted.date },
+                    end: { date: extracted.date },
+                    reminders: {
+                      useDefault: false,
+                      overrides: [
+                        { method: "popup", minutes: 24 * 60 },
+                        { method: "popup", minutes: 60 },
+                      ],
+                    },
+                  },
+                });
+
+                await db
+                  .update(eventsTable)
+                  .set({ calendarEventId: calEvent.data.id ?? null })
+                  .where(eq(eventsTable.id, newEvent.id));
+
+                calendarSynced++;
+              } catch (calErr) {
+                logger.warn({ calErr }, "Failed to sync event to calendar");
+              }
             }
           }
         }

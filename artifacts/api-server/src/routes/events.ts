@@ -176,14 +176,43 @@ router.post("/events/:id/calendar", requireAuth, async (req: AuthenticatedReques
     });
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
+    const EVENT_EMOJI: Record<string, string> = {
+      quiz: "📝",
+      exam: "📚",
+      viva: "🎤",
+      assignment: "📋",
+      presentation: "🖥️",
+      other: "📌",
+    };
+    const EVENT_COLOR_ID: Record<string, string> = {
+      quiz: "5",
+      exam: "11",
+      viva: "3",
+      assignment: "2",
+      presentation: "6",
+      other: "7",
+    };
+
     const eventDate = event.eventDate ?? new Date().toISOString().slice(0, 10);
+    const emoji = EVENT_EMOJI[event.eventType] ?? "📌";
+    const colorId = EVENT_COLOR_ID[event.eventType] ?? "7";
+    const titleLine = event.rawText?.split("\n")[0] ?? event.courseName;
+
     const calEvent = await calendar.events.insert({
       calendarId: "primary",
       requestBody: {
-        summary: `${event.eventType.charAt(0).toUpperCase() + event.eventType.slice(1)} — ${event.courseName}`,
+        summary: `${emoji} ${titleLine} — ${event.courseName}`,
         description: event.rawText,
+        colorId,
         start: { date: eventDate },
         end: { date: eventDate },
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: "popup", minutes: 24 * 60 },
+            { method: "popup", minutes: 60 },
+          ],
+        },
       },
     });
 
