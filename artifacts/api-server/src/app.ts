@@ -32,16 +32,19 @@ if (!sessionSecret) {
   throw new Error("SESSION_SECRET environment variable is required");
 }
 
+// Replit always runs behind HTTPS — trust the proxy so secure cookies work
+app.set("trust proxy", 1);
+
 app.use(
   session({
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env["NODE_ENV"] === "production",
+      secure: true,   // Always true — Replit's proxy is always HTTPS
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      sameSite: process.env["NODE_ENV"] === "production" ? "none" : "lax",
+      sameSite: "lax",
     },
   }),
 );
