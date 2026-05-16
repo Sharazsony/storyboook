@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ClassMind — Smart Academic Assistant"
+version = "1.0.0"
+id = "artifacts/classroom-assistant"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19266
+
+[services.development]
+run = "pnpm --filter @workspace/classroom-assistant run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/classroom-assistant", "run", "build" ]
+publicDir = "artifacts/classroom-assistant/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19266"
+BASE_PATH = "/"

@@ -1,6 +1,6 @@
-# [Project name]
+# ClassMind — Smart Academic Assistant
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A web app that connects to Google Classroom, uses AI (Groq) to extract academic events (quizzes, exams, vivas, assignments) from course announcements, and syncs them to Google Calendar.
 
 ## Run & Operate
 
@@ -16,21 +16,40 @@ _Replace the heading above with the project's name, and this line with one sente
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
+- Auth: Google OAuth 2.0 (express-session)
+- AI: Groq API (llama3-70b-8192)
+- Google APIs: Classroom (read announcements), Calendar (create events)
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
+- Frontend: React + Vite + TailwindCSS + shadcn/ui
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — API contract source of truth
+- `lib/db/src/schema/users.ts` — users table (Google OAuth tokens stored here)
+- `lib/db/src/schema/events.ts` — academic events table
+- `artifacts/api-server/src/routes/auth.ts` — Google OAuth flow
+- `artifacts/api-server/src/routes/courses.ts` — Classroom sync + AI processing
+- `artifacts/api-server/src/routes/events.ts` — event CRUD + Calendar sync
+- `artifacts/api-server/src/lib/google.ts` — OAuth2 client factory
+- `artifacts/api-server/src/lib/groq.ts` — AI event extraction
+- `artifacts/classroom-assistant/src/` — React frontend
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Google OAuth tokens (access + refresh) stored per-user in PostgreSQL — no separate token store needed
+- Announcements are deduped by `announcement_id` so repeated syncs don't create duplicates
+- AI extraction skips events with confidence < 0.4 to reduce noise
+- Calendar sync happens automatically during classroom sync if a date is detected, and can also be triggered manually per event
+- Session stored in express-session (memory store in dev); should use a persistent store in production
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Login with Google (requires Classroom + Calendar scopes)
+- Dashboard: upcoming events in 14 days, event type breakdown, courses list
+- Events page: full filterable event list with per-event calendar sync and delete
+- Sync button: fetches all active courses, processes announcements through Groq AI, creates calendar events
 
 ## User preferences
 
@@ -38,7 +57,11 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Google OAuth redirect URI must be configured in Google Cloud Console. In development, add: `https://<your-replit-dev-domain>/api/auth/google/callback`. In production, add the deployed domain.
+- Classroom API requires the app to be authorized by the user. First-time users will see a consent screen.
+- The `SESSION_SECRET` env var is required — it's already set as a Replit secret.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GROQ_API_KEY` must be set (already configured as secrets).
+- Always run `pnpm --filter @workspace/api-spec run codegen` after changing `openapi.yaml`.
 
 ## Pointers
 
