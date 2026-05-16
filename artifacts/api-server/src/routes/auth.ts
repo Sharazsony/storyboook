@@ -7,9 +7,21 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
+router.get("/auth/debug-redirect", (_req: Request, res: Response): void => {
+  try {
+    const oauth2Client = createOAuth2Client();
+    const redirectUri = (oauth2Client as unknown as { redirectUri: string }).redirectUri;
+    res.json({ redirectUri });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 router.get("/auth/google", (_req: Request, res: Response): void => {
   try {
     const oauth2Client = createOAuth2Client();
+    const redirectUri = (oauth2Client as unknown as { redirectUri: string }).redirectUri;
+    logger.info({ redirectUri }, "OAuth redirect URI being used");
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
       scope: SCOPES,
