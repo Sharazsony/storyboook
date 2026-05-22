@@ -11,7 +11,14 @@ router.get("/auth/debug-redirect", (_req: Request, res: Response): void => {
   try {
     const oauth2Client = createOAuth2Client();
     const redirectUri = (oauth2Client as unknown as { redirectUri: string }).redirectUri;
-    res.json({ redirectUri });
+    const envVar = process.env["GOOGLE_REDIRECT_URI"];
+    const allKeys = Object.keys(oauth2Client);
+    res.json({ 
+      redirectUri,
+      envVar,
+      oauth2ClientKeys: allKeys,
+      clientId: process.env["GOOGLE_CLIENT_ID"],
+    });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -36,15 +43,16 @@ router.get("/auth/google", (_req: Request, res: Response): void => {
 
 router.get("/auth/google/callback", async (req: Request, res: Response): Promise<void> => {
   const { code, error } = req.query as { code?: string; error?: string };
+  const frontendUrl = process.env["FRONTEND_URL"] || "http://localhost:3000";
 
   if (error) {
     req.log.warn({ error }, "OAuth error from Google");
-    res.redirect("/?auth_error=access_denied");
+    res.redirect(`${frontendUrl}/?auth_error=access_denied`);
     return;
   }
 
   if (!code) {
-    res.redirect("/?auth_error=no_code");
+    res.redirect(`${frontendUrl}/?auth_error=no_code`);
     return;
   }
 
@@ -57,7 +65,7 @@ router.get("/auth/google/callback", async (req: Request, res: Response): Promise
     const { data: profile } = await oauth2.userinfo.get();
 
     if (!profile.email || !profile.id) {
-      res.redirect("/?auth_error=no_profile");
+      res.redirect(`${frontendUrl}/?auth_error=no_profile`);
       return;
     }
 
@@ -101,10 +109,14 @@ router.get("/auth/google/callback", async (req: Request, res: Response): Promise
 
     (req.session as { userId?: number }).userId = user.id;
     req.log.info({ userId: user.id }, "User authenticated");
-    res.redirect("/");
+    
+    // Redirect to frontend - use environment variable or localhost:3000 for development
+    const frontendUrl = process.env["FRONTEND_URL"] || "http://localhost:3000";
+    res.redirect(`${frontendUrl}/`);
   } catch (err) {
     logger.error({ err }, "OAuth callback error");
-    res.redirect("/?auth_error=callback_failed");
+    const frontendUrl = process.env["FRONTEND_URL"] || "http://localhost:3000";
+    res.redirect(`${frontendUrl}/?auth_error=callback_failed`);
   }
 });
 

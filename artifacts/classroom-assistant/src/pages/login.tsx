@@ -39,7 +39,7 @@ export default function Login() {
           asChild 
           className="w-full h-12 text-base font-medium shadow-md transition-transform active:scale-[0.98]"
         >
-          <a href="/api/auth/google">
+          <a href={import.meta.env.DEV ? "http://localhost:5000/api/auth/google" : "/api/auth/google"}>
             Sign in with Google
           </a>
         </Button>

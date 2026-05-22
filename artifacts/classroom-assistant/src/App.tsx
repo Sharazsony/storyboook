@@ -3,12 +3,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
-import { useGetMe, getGetMeQueryKey, useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey, useHealthCheck, getHealthCheckQueryKey, setBaseUrl } from "@workspace/api-client-react";
 
 import Dashboard from "@/pages/dashboard";
 import Events from "@/pages/events";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
+
+// Set API base URL - detect if we're in development or production
+const apiBaseUrl = import.meta.env.DEV 
+  ? "http://localhost:5000"
+  : window.location.origin;
+setBaseUrl(apiBaseUrl);
 
 const queryClient = new QueryClient();
 

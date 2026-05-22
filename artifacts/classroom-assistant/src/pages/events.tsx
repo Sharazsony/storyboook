@@ -35,7 +35,7 @@ export default function Events() {
   const syncClassroom = useSyncClassroom();
 
   const handleSync = () => {
-    syncClassroom.mutate({}, {
+    syncClassroom.mutate(undefined, {
       onSuccess: (result) => {
         toast({
           title: "Sync Complete",

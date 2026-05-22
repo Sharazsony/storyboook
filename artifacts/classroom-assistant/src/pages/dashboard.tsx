@@ -22,7 +22,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: allEvents, isLoading: loadingEvents } = useListEvents({
+  const { data: allEvents, isLoading: loadingEvents } = useListEvents({}, {
     query: { queryKey: getListEventsQueryKey() }
   });
   const recentEvents = allEvents?.slice(0, 6) ?? [];
@@ -38,7 +38,7 @@ export default function Dashboard() {
   const syncClassroom = useSyncClassroom();
 
   const handleSync = () => {
-    syncClassroom.mutate({}, {
+    syncClassroom.mutate(undefined, {
       onSuccess: (result) => {
         toast({
           title: "Sync Complete",

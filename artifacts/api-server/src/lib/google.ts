@@ -22,7 +22,8 @@ function getDefaultRedirectUri(): string {
   if (devDomain) {
     return `https://${devDomain}/api/auth/google/callback`;
   }
-  return "http://localhost:3000/api/auth/google/callback";
+  // Development: redirect to API server on port 5000, not frontend on port 3000
+  return "http://localhost:5000/api/auth/google/callback";
 }
 
 export const SCOPES = [
