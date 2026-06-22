@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "o-a0w78htXTqqa9Jl9GlT"
+uri = "file://LOCAL_SETUP.md"
+type = "text"
+title = "LOCAL_SETUP.md — Complete Local Dev Guide for VS Code + Copilot"

@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: classmind-api
+    runtime: node
+    region: oregon
+    plan: free
+    
+    # Build configuration
+    buildCommand: cd artifacts/api-server && pnpm install && pnpm run build
+    startCommand: cd artifacts/api-server && pnpm start
+    
+    # Environment variables
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: BASE_PATH
+        value: /api
+      - key: GOOGLE_CLIENT_ID
+        fromDatabase:
+          name: GOOGLE_CLIENT_ID
+      - key: GOOGLE_CLIENT_SECRET
+        fromDatabase:
+          name: GOOGLE_CLIENT_SECRET
+      - key: GOOGLE_REDIRECT_URI
+        value: https://classmind-api.onrender.com/api/auth/google/callback
+      - key: DATABASE_URL
+        fromDatabase:
+          name: DATABASE_URL
+      - key: ENCRYPTION_KEY
+        fromDatabase:
+          name: ENCRYPTION_KEY
+      - key: JWT_SECRET
+        fromDatabase:
+          name: JWT_SECRET
+      - key: JWT_REFRESH_SECRET
+        fromDatabase:
+          name: JWT_REFRESH_SECRET
+      - key: GROQ_API_KEY
+        fromDatabase:
+          name: GROQ_API_KEY
+      - key: SESSION_SECRET
+        fromDatabase:
+          name: SESSION_SECRET
+    
+    # Auto-deploy from GitHub
+    repo: https://github.com/Sharazsony/GF_GoogleClassroom_Friend
+    branch: main
+    
+    # Health check
+    healthCheckPath: /api/health
+    
+    # Free tier limits
+    maxInstances: 1
+    minInstances: 1
